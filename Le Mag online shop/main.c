@@ -31,14 +31,14 @@ struct product
 };
 
 struct product StringToProduct(char *temp)
-        {
-            struct product prod;
-            prod.id = atoi(strtok(temp, ","));
-            strcpy(prod.name,strtok(NULL,","));
-            prod.price =  atoi(strtok(NULL,","));
-            prod.stock = atoi(strtok(NULL,","));
-            return prod;
-        };
+{
+    struct product prod;
+    prod.id = atoi(strtok(temp, ","));
+    strcpy(prod.name,strtok(NULL,","));
+    prod.price =  atoi(strtok(NULL,","));
+    prod.stock = atoi(strtok(NULL,","));
+    return prod;
+};
 
 void Printer(int n)  //Prints any long text
 {
@@ -86,8 +86,7 @@ void OrderPlacement(FILE *user,FILE* catalogue)
 {
     return;
 };
-void ProductSelling(FILE *user,FILE* catalogue)
-{
+void ProductSelling(FILE *user, FILE *catalogue) {
     char temp[200];
     char last_char;
     while (fgets(temp, sizeof(temp), catalogue) != NULL) {
@@ -97,58 +96,80 @@ void ProductSelling(FILE *user,FILE* catalogue)
     int lastid = atoi(&temp[0]);
     printf("Please enter the number of product types you'd like to sell:\n");
     int types;
-    scanf("%d",&types);
+    scanf("%d", &types);
     getchar();
-    printf("Please enter the products you'd like to be sold to the store in the following format: [product name] [product price] [product quantity] /n .\n"
-           "If the items are already in the stores catalogue,please make sure they have the same name\n");
-    for (int i = 0; i < types; i++)
-    {
+    printf("Please enter the products you'd like to be sold to the store in the following format: [product name] [product price] [product quantity].\n"
+           "If the items are already in the store's catalogue, please make sure they have the same name.\n");
+    for (int i = 0; i < types; i++) {
         lastid++;
-        struct product tempprod,searchprod;
+        struct product tempprod, searchprod;
         fgets(temp, sizeof(temp), stdin);
         temp[strcspn(temp, "\n")] = 0;
         tempprod.id = lastid;
-        strcpy(tempprod.name, strtok(temp," "));
-        tempprod.price = atoi(strtok(NULL," "));
-        tempprod.stock = atoi(strtok(NULL," "));
-        printf("id is %d     name is %s     price is %d     quantity is %d",tempprod.id,tempprod.name,tempprod.price,tempprod.stock);
-        catalogue = fopen("catalogue.csv","r");
-        while(fgets(temp,1000,catalogue)!=NULL)
-        {
+        strcpy(tempprod.name, strtok(temp, " "));
+        tempprod.price = atoi(strtok(NULL, " "));
+        tempprod.stock = atoi(strtok(NULL, " "));
+        //printf("id is %d     name is %s     price is %d     quantity is %d\n", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
+
+        catalogue = fopen("catalogue.csv", "r+");
+        FILE *temp_file = fopen("temp.csv", "w"); // Temporary file to store updated catalog
+
+        // Copy contents to the temporary file while updating the catalog
+        while (fgets(temp, 1000, catalogue) != NULL) {
             searchprod = StringToProduct(temp);
-            if (strstr(searchprod.name,tempprod.name) != 0) //verifies each item if it already exists in the stores catalogue;
-            {
-                int modifid = searchprod.id;
-                searchprod.stock = searchprod.stock + tempprod.stock;
-
+            if (searchprod.id == tempprod.id) {
+                // Skip the line with the old product information
+                continue;
             }
-
+            fprintf(temp_file, "%d,%s,%d,%d\n", searchprod.id, searchprod.name, searchprod.price, searchprod.stock);
         }
+
+        // Add the new product information to the catalog
+        fprintf(temp_file, "%d,%s,%d,%d\n", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
+
+        // Close both files
+        fclose(catalogue);
+        fclose(temp_file);
+
+        // Replace the old catalog with the updated one
+        remove("catalogue.csv");
+        rename("temp.csv", "catalogue.csv");
+
+        // Save the order in the user file
+        fprintf(user, "%d,SELL,%s.%d,%d\n", tempprod.id, tempprod.name, tempprod.stock, tempprod.stock * tempprod.price);
+    }
+}
+
+void OrderView(FILE* user) {
+    char temp[1000];
+
+    // Read the first line from the file
+    if (fgets(temp, sizeof(temp), user) == NULL) {
+        printf("You have not placed any orders yet.\n");
+        return;
     }
 
-    return;
-};
-void OrderView(FILE* user)
-{
-        while (feof(user) == 0)
-        {
-            char temp[1000];
-            fgets(temp,1000,user);
-            struct order ord = StringtoOrder(temp);
-            printf("Order Type: %s  ",ord.ordertype);   printf("Order Id: %d    ",ord.orderid);   printf("Order price: %d   Ordered products:\n",ord.price);
-            char *token=strtok(ord.orderitems,"_");
-            while (token != NULL)
-            {
-                struct product prod;
-                strcpy(prod.name, strtok(token,"."));
-                prod.stock =atoi( strtok(NULL,"."));
-                printf("%s %d\n",prod.name,prod.stock);
-                token = strtok(NULL,"_");
-            }
+    // Loop through the file and process each order
+    do {
+        struct order ord = StringtoOrder(temp);
+        printf("Order Type: %s  ", ord.ordertype);
+        printf("Order Id: %d    ", ord.orderid);
+        printf("Order price: %d   Ordered products:\n", ord.price);
+
+        // Process ordered products
+        char *token = strtok(ord.orderitems, "_");
+        while (token != NULL) {
+            struct product prod;
+            strcpy(prod.name, strtok(token, "."));
+            prod.stock = atoi(strtok(NULL, "."));
+            printf("%s %d\n", prod.name, prod.stock);
+            token = strtok(NULL, "_");
         }
 
-        return;
-    };
+        // Read the next line
+    } while (fgets(temp, sizeof(temp), user) != NULL);
+    return;
+}
 
 void Authentication(FILE* catalogue) //Allows the user to authenticate and use the order,see orders and sell products commands
 {
@@ -183,17 +204,15 @@ void Authentication(FILE* catalogue) //Allows the user to authenticate and use t
         }else
             return; // exits login screen.
     }
-
-
-    printf("Welcome %s %s what would you like to do?\n"
-           "1.Place order.\n"
-           "2.Sell products to store.\n"
-           "3.View placed orders.\n"
-           "0.Exit to home screen\n",name,surname);
     char inp;
     int zeropressed = 0;
     while (zeropressed == 0) {
-        scanf("%s1",&inp);
+        printf("Welcome %s %s what would you like to do?\n"
+               "1.Place order.\n"
+               "2.Sell products to store.\n"
+               "3.View placed orders.\n"
+               "0.Exit to home screen\n",name,surname);
+        scanf(" %s1",&inp);
         switch (inp - 48) {
             case 1:
                 OrderPlacement(user,catalogue);
@@ -226,19 +245,19 @@ void ProductSearch(FILE *catalogue)    //Allows the user to search for a product
     int inp = 6 ;
     scanf("%d",&inp);
     switch (inp) {
-            case 1:
-                printf("Please input the key word/s you'd like to make your search for:\n");
-                scanf("%s",&criteria); //storing given criteria
-                catalogue = fopen("catalogue.csv","r");
-                while(fgets(temp,1000,catalogue)!=NULL)
+        case 1:
+            printf("Please input the key word/s you'd like to make your search for:\n");
+            scanf("%s",&criteria); //storing given criteria
+            catalogue = fopen("catalogue.csv","r");
+            while(fgets(temp,1000,catalogue)!=NULL)
+            {
+                struct product prod = StringToProduct(temp);
+                if (strstr(prod.name,criteria) != 0) //verifies each item if its name contains the given criteria
                 {
-                    struct product prod = StringToProduct(temp);
-                    if (strstr(prod.name,criteria) != 0) //verifies each item if its name contains the given criteria
-                    {
-                        printf("%d %s %d\n",prod.id,prod.name,prod.price);
-                    }
-
+                    printf("%d %s %d\n",prod.id,prod.name,prod.price);
                 }
+
+            }
             fclose(catalogue);
             break;
         case 2:
@@ -252,7 +271,7 @@ void ProductSearch(FILE *catalogue)    //Allows the user to search for a product
                 if (prod.price>=LowerLimit && prod.price<=UpperLimit) //verifies each item if its data contains the given criteria
                 {
 
-                        printf("%d %s %d\n",prod.id,prod.name,prod.price);
+                    printf("%d %s %d\n",prod.id,prod.name,prod.price);
                 }
 
             }
@@ -292,22 +311,22 @@ void ProductSearch(FILE *catalogue)    //Allows the user to search for a product
 void ViewCatalogue(FILE *catalogue) //Allows the user to see all the products offered by the store
 {
     printf("\nProducts will be shown in the following format [productid] [productname] [price/piece]\n");
-        char temp[1000];
-        struct product prod;
-        catalogue = fopen("catalogue.csv","r");
-        while(feof(catalogue) == 0)
+    char temp[1000];
+    struct product prod;
+    catalogue = fopen("catalogue.csv","r");
+    while(feof(catalogue) == 0)
+    {
+
+        if(fgets(temp,1000,catalogue) == NULL)
         {
-
-            if(fgets(temp,1000,catalogue) == NULL)
-            {
-                printf("The catalogue is empty.");
-                return;
-            }
-            prod = StringToProduct(temp);
-            printf("%d %s %d\n",prod.id,prod.name,prod.price);
-
+            printf("The catalogue is empty.");
+            return;
         }
-        printf("\n");
+        prod = StringToProduct(temp);
+        printf("%d %s %d\n",prod.id,prod.name,prod.price);
+
+    }
+    printf("\n");
 
 };
 
@@ -333,7 +352,7 @@ int main()
             } else // I am aware I could have put the common code,but I am human as well and copy pasting it seems to work fine.
             {
                 printf("The file was created successfully\n");
-                fclose("catalogue.csv");
+                fclose(catalogue);
                 Printer(0);
                 char *input = malloc(10 * sizeof(char)); //stores user-given input
                 int zeropressed = 0; //variable used to store if the user chose to exit the store
@@ -386,7 +405,7 @@ int main()
         int zeropressed = 0; //variable used to store if the user chose to exit the store
         while (zeropressed ==
                0) {  //while used in order to let the client do actions until he chooses to press 0 in order to close the program
-            scanf("%s", input); //read user input
+            scanf(" %s", input); //read user input
             if (strchr("01234567", input[0]) != NULL &&
                 strlen(input) == 1) //verify if the input given by the operator is correct
             {
