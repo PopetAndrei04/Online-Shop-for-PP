@@ -86,13 +86,12 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
     int productId;
     int quantity;
     int found = 0;
-
     // Prompt user for product ID
     printf("Please enter the ID of the product you want to buy: ");
     scanf("%d", &productId);
 
     // Check if the product ID exists in the catalogue
-    rewind(catalogue); // Move file cursor to the beginning of the file
+    rewind(catalogue);
     char temp[1000];
     while (fgets(temp, sizeof(temp), catalogue) != NULL) {
         struct product prod = StringToProduct(temp);
@@ -100,8 +99,6 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
             found = 1;
             printf("Product found: %s\n", prod.name);
             printf("Available stock: %d\n", prod.stock);
-
-            // Prompt user for quantity
             printf("Please enter the quantity you want to buy: ");
             scanf("%d", &quantity);
 
@@ -123,9 +120,9 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
                         struct product tempProd = StringToProduct(temp);
                         if (tempProd.id == productId) {
                             tempProd.stock -= quantity; // Reduce stock
-                            fprintf(tempFile, "\n%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                            fprintf(tempFile, "%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
                         } else {
-                            fprintf(tempFile, "\n%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                            fprintf(tempFile, "%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
                         }
                     }
                     fclose(catalogue);
@@ -134,7 +131,7 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
                     rename("temp.csv", "catalogue.csv");
 
                     // Write order to user file
-                    fprintf(user, "\n%d,BUY,%s.%d,%d", productId, prod.name, quantity, totalPrice);
+                    fprintf(user, "%d,BUY,%s.%d,%d", productId, prod.name, quantity, totalPrice);
                     printf("Order placed successfully!\n");
                 } else {
                     printf("Order canceled.\n");
@@ -295,6 +292,7 @@ void Authentication(FILE* catalogue) //Allows the user to authenticate and use t
                 fclose(catalogue);
                 break;
             case 2:
+                catalogue = fopen("catalogue.csv","r+");
                 ProductSelling(user, catalogue);
                 fclose(catalogue);
                 break;
@@ -414,7 +412,7 @@ void ViewCatalogue(FILE *catalogue) //Allows the user to see all the products of
 
 int main()
 {
-    printf("Welcome to Le Mag,\n");
+    printf("Welcome to Le Mag-for all your vehicular needs,\n");
     FILE* catalogue = fopen("catalogue.csv", "r");
     if (!catalogue)
     {
