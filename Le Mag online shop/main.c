@@ -82,18 +82,94 @@ void Printer(int n)  //Prints any long text
 
 };
 
-void OrderPlacement(FILE *user,FILE* catalogue)
-{
+void OrderPlacement(FILE *user, FILE* catalogue) {
+    int productId;
+    int quantity;
+    int found = 0;
+
+    // Prompt user for product ID
+    printf("Please enter the ID of the product you want to buy: ");
+    scanf("%d", &productId);
+
+    // Check if the product ID exists in the catalogue
+    rewind(catalogue); // Move file cursor to the beginning of the file
+    char temp[1000];
+    while (fgets(temp, sizeof(temp), catalogue) != NULL) {
+        struct product prod = StringToProduct(temp);
+        if (prod.id == productId) {
+            found = 1;
+            printf("Product found: %s\n", prod.name);
+            printf("Available stock: %d\n", prod.stock);
+
+            // Prompt user for quantity
+            printf("Please enter the quantity you want to buy: ");
+            scanf("%d", &quantity);
+
+            // Check if the requested quantity is available
+            if (quantity <= prod.stock) {
+                int totalPrice = quantity * prod.price;
+                printf("Total price for %d %s(s): %d\n", quantity, prod.name, totalPrice);
+
+                // Confirm purchase
+                char confirm;
+                printf("Confirm purchase? (Y/N): ");
+                scanf(" %c", &confirm);
+
+                if (confirm == 'Y' || confirm == 'y') {
+                    // Update stock in the catalogue
+                    FILE *tempFile = fopen("temp.csv", "w");
+                    rewind(catalogue); // Move file cursor to the beginning of the file
+                    while (fgets(temp, sizeof(temp), catalogue) != NULL) {
+                        struct product tempProd = StringToProduct(temp);
+                        if (tempProd.id == productId) {
+                            tempProd.stock -= quantity; // Reduce stock
+                            fprintf(tempFile, "\n%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                        } else {
+                            fprintf(tempFile, "\n%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                        }
+                    }
+                    fclose(catalogue);
+                    fclose(tempFile);
+                    remove("catalogue.csv");
+                    rename("temp.csv", "catalogue.csv");
+
+                    // Write order to user file
+                    fprintf(user, "\n%d,BUY,%s.%d,%d", productId, prod.name, quantity, totalPrice);
+                    printf("Order placed successfully!\n");
+                } else {
+                    printf("Order canceled.\n");
+                }
+            } else {
+                printf("Sorry, the requested quantity is not available.\n");
+            }
+            break; // Exit loop since product found
+        }
+    }
+
+    // If product not found
+    if (!found) {
+        printf("Product not found in the catalogue.\n");
+    }
     return;
-};
+}
+
 void ProductSelling(FILE *user, FILE *catalogue) {
     char temp[200];
     char last_char;
+    int lastid = 0; // Initialize lastid to avoid uninitialized variable usage
     while (fgets(temp, sizeof(temp), catalogue) != NULL) {
         last_char = temp[0];
     }
     fclose(catalogue);
-    int lastid = atoi(&temp[0]);
+    // Correct the while loop condition here
+    while (fgets(temp, sizeof(temp), user) != NULL) {
+        int currentId;
+        if (sscanf(temp, "%d", &currentId) == 1) {
+            if (currentId > lastid) {
+                lastid = currentId;
+            }
+        }
+    }
     printf("Please enter the number of product types you'd like to sell:\n");
     int types;
     scanf("%d", &types);
@@ -121,11 +197,11 @@ void ProductSelling(FILE *user, FILE *catalogue) {
                 // Skip the line with the old product information
                 continue;
             }
-            fprintf(temp_file, "%d,%s,%d,%d\n", searchprod.id, searchprod.name, searchprod.price, searchprod.stock);
+            fprintf(temp_file, "\n%d,%s,%d,%d", searchprod.id, searchprod.name, searchprod.price, searchprod.stock);
         }
 
         // Add the new product information to the catalog
-        fprintf(temp_file, "%d,%s,%d,%d\n", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
+        fprintf(temp_file, "\n%d,%s,%d,%d", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
 
         // Close both files
         fclose(catalogue);
@@ -216,12 +292,15 @@ void Authentication(FILE* catalogue) //Allows the user to authenticate and use t
         switch (inp - 48) {
             case 1:
                 OrderPlacement(user,catalogue);
+                fclose(catalogue);
                 break;
             case 2:
                 ProductSelling(user, catalogue);
+                fclose(catalogue);
                 break;
             case 3:
                 OrderView(user);
+                fclose(catalogue);
                 break;
             case 0:
                 zeropressed =1;
@@ -323,7 +402,7 @@ void ViewCatalogue(FILE *catalogue) //Allows the user to see all the products of
             return;
         }
         prod = StringToProduct(temp);
-        printf("%d %s %d\n",prod.id,prod.name,prod.price);
+        printf("%d %s %d %d \n",prod.id,prod.name,prod.price,prod.stock);
 
     }
     printf("\n");
