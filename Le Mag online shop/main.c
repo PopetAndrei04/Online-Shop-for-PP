@@ -33,10 +33,14 @@ struct product
 struct product StringToProduct(char *temp)
 {
     struct product prod;
+    if (temp[0] == '\0' || temp[0] == '\n') {
+        prod.id = -1;
+        return prod;
+    }
     prod.id = atoi(strtok(temp, ","));
-    strcpy(prod.name,strtok(NULL,","));
-    prod.price =  atoi(strtok(NULL,","));
-    prod.stock = atoi(strtok(NULL,","));
+    strcpy(prod.name, strtok(NULL, ","));
+    prod.price = atoi(strtok(NULL, ","));
+    prod.stock = atoi(strtok(NULL, ","));
     return prod;
 };
 
@@ -120,9 +124,9 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
                         struct product tempProd = StringToProduct(temp);
                         if (tempProd.id == productId) {
                             tempProd.stock -= quantity; // Reduce stock
-                            fprintf(tempFile, "%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                            fprintf(tempFile, "%d,%s,%d,%d\n", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
                         } else {
-                            fprintf(tempFile, "%d,%s,%d,%d", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
+                            fprintf(tempFile, "%d,%s,%d,%d\n", tempProd.id, tempProd.name, tempProd.price, tempProd.stock);
                         }
                     }
                     fclose(catalogue);
@@ -152,69 +156,50 @@ void OrderPlacement(FILE *user, FILE* catalogue) {
 
 void ProductSelling(FILE *user, FILE *catalogue) {
     char temp[200];
-    char last_char;
     int lastid = 0; // Initialize lastid to avoid uninitialized variable usage
+    // Find the last ID in the catalogue
     while (fgets(temp, sizeof(temp), catalogue) != NULL) {
-        last_char = temp[0];
-    }
-    fclose(catalogue);
-    // Correct the while loop condition here
-    while (fgets(temp, sizeof(temp), user) != NULL) {
-        int currentId;
-        if (sscanf(temp, "%d", &currentId) == 1) {
-            if (currentId > lastid) {
-                lastid = currentId;
-            }
+        struct product prod = StringToProduct(temp);
+        if (prod.id > lastid) {
+            lastid = prod.id;
         }
     }
+    rewind(catalogue); // Reset file pointer to the beginning of the file
+
     printf("Please enter the number of product types you'd like to sell:\n");
     int types;
     scanf("%d", &types);
-    getchar();
+    getchar(); // Consume newline character
+
     printf("Please enter the products you'd like to be sold to the store in the following format: [product name] [product price] [product quantity].\n"
            "If the items are already in the store's catalogue, please make sure they have the same name.\n");
+
+    // Loop through each product type to be sold
     for (int i = 0; i < types; i++) {
-        lastid++;
-        struct product tempprod, searchprod;
+        lastid++; // Increment last ID for the new product
+        struct product tempprod;
         fgets(temp, sizeof(temp), stdin);
-        temp[strcspn(temp, "\n")] = 0;
+        temp[strcspn(temp, "\n")] = '\0'; // Remove newline character
+
+        // Parse product information
         tempprod.id = lastid;
         strcpy(tempprod.name, strtok(temp, " "));
         tempprod.price = atoi(strtok(NULL, " "));
         tempprod.stock = atoi(strtok(NULL, " "));
-        //printf("id is %d     name is %s     price is %d     quantity is %d\n", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
 
-        catalogue = fopen("catalogue.csv", "r+");
-        FILE *temp_file = fopen("temp.csv", "w"); // Temporary file to store updated catalog
-
-        // Copy contents to the temporary file while updating the catalog
-        while (fgets(temp, 1000, catalogue) != NULL) {
-            searchprod = StringToProduct(temp);
-            if (searchprod.id == tempprod.id) {
-                // Skip the line with the old product information
-                continue;
-            }
-            fprintf(temp_file, "\n%d,%s,%d,%d", searchprod.id, searchprod.name, searchprod.price, searchprod.stock);
-        }
-
-        // Add the new product information to the catalog
-        fprintf(temp_file, "\n%d,%s,%d,%d", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
-
-        // Close both files
-        fclose(catalogue);
-        fclose(temp_file);
-
-        // Replace the old catalog with the updated one
-        remove("catalogue.csv");
-        rename("temp.csv", "catalogue.csv");
-
-        // Save the order in the user file
+        fprintf(catalogue, "%d,%s,%d,%d\n", tempprod.id, tempprod.name, tempprod.price, tempprod.stock);
         fprintf(user, "%d,SELL,%s.%d,%d\n", tempprod.id, tempprod.name, tempprod.stock, tempprod.stock * tempprod.price);
     }
+
+    // Close the files
+    fclose(catalogue);
+    fclose(user);
 }
+
 
 void OrderView(FILE* user) {
     char temp[1000];
+
 
     // Read the first line from the file
     if (fgets(temp, sizeof(temp), user) == NULL) {
@@ -288,17 +273,21 @@ void Authentication(FILE* catalogue) //Allows the user to authenticate and use t
         scanf(" %s1",&inp);
         switch (inp - 48) {
             case 1:
+                user = fopen(filename, "r+");
                 OrderPlacement(user,catalogue);
                 fclose(catalogue);
                 break;
             case 2:
+                user = fopen(filename, "a+");
                 catalogue = fopen("catalogue.csv","r+");
                 ProductSelling(user, catalogue);
                 fclose(catalogue);
                 break;
             case 3:
+                user = fopen(filename, "r+");
                 OrderView(user);
                 fclose(catalogue);
+                fclose(user);
                 break;
             case 0:
                 zeropressed =1;
@@ -390,6 +379,7 @@ void ViewCatalogue(FILE *catalogue) //Allows the user to see all the products of
     printf("\nProducts will be shown in the following format [productid] [productname] [price/piece]\n");
     char temp[1000];
     struct product prod;
+    fclose(catalogue);
     catalogue = fopen("catalogue.csv","r");
     while(feof(catalogue) == 0)
     {
@@ -497,6 +487,7 @@ int main()
                         Printer(0);
                         break;
                     case 3:
+                        catalogue = fopen("catalogue.csv","r");
                         ViewCatalogue(catalogue);
                         Printer(0);
                         break;
